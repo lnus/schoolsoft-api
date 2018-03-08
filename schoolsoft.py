@@ -15,7 +15,6 @@ class AuthFailure(Exception):
 
 class SchoolSoft(object):
     """SchoolSoft Core API (Unofficial)"""
-    _login_page_re = r"https://sms(\d*).schoolsoft.se/%s/html/redirect_login.htm"
 
     def __init__(self, school, username, password, usertype = 1):
         """
@@ -33,6 +32,7 @@ class SchoolSoft(object):
 
         self.cookies = {}
 
+        _login_page_re = r"https://sms(\d*).schoolsoft.se/%s/html/redirect_login.htm"
         self._login_page_re = re.compile(_login_page_re % school)
 
         # Might not be needed, still gonna leave it here
