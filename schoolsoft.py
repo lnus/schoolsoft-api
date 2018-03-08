@@ -3,7 +3,10 @@ import requests
 import re
 
 # My personal keys for testing the API
-import testkeys
+try:
+    import testkeys
+except ImportError:
+    pass # super dumb but i need it for debugging atm
 
 class AuthFailure(Exception):
     """In case API authentication fails"""
