@@ -5,10 +5,6 @@ import re
 # My personal keys for testing the API
 import testkeys
 
-_login_page_re = r"https://sms(\d*).schoolsoft.se/%s/html/redirect_login.htm"
-
-login_page = "https://sms5.schoolsoft.se/{}/jsp/Login.jsp"
-
 class AuthFailure(Exception):
     """In case API authentication fails"""
     pass
@@ -36,7 +32,7 @@ class SchoolSoft(object):
 
         self._login_page_re = re.compile(_login_page_re % school)
 
-        # Might not be needed
+        # Might not be needed, still gonna leave it here
         self.login_page = "https://sms5.schoolsoft.se/{}/jsp/Login.jsp".format(school)
 
     def try_get(self, url, attempts = 0):
