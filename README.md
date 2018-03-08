@@ -20,5 +20,5 @@ api.fetch_schedule()    # Gets the schedule and returns a list
 However, you can access almost any page by experimenting with:
 
 ```python
-api.try_get(url)        # Runs a login call, and get's URL entered
+api.try_get(url)        # Runs a login call, and returns URL entered in request format
 ```
