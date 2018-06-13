@@ -1,6 +1,8 @@
+from datetime import date
 from bs4 import BeautifulSoup
 import requests
 import re
+import unicodedata
 
 # My personal keys for testing the API
 try:
@@ -106,11 +108,90 @@ class SchoolSoft(object):
 
         return full_schedule
 
+    def fetch_news(self):
+        """
+        Fetches the news messages
+        Returns a list of dicts, where each dict describes a message. The dict contains the following keys:
+         * id   The message internal ID, as an int
+         * subject   The message subject, as a string
+         * body   The message body, as html text
+         * category   The category the message belongs to, as a string
+         * from   The sender, as a string
+         * to   The recipient(s), as a string
+         * date   The publish date, as a datetime.date
+         * attachment-url   The URL to an attachment (optional), as a string
+         * attachment-name   The name of the attachment (optional), as a string
+        """
+        news_html = self.try_get("https://sms5.schoolsoft.se/{}/jsp/student/right_student_news.jsp?menu=news".format(self.school))
+        # normalize all of the html directly
+        news_html_normalized = unicodedata.normalize("NFKC", news_html.text)
+
+        # FIXME: Why does this not work?
+        # news_html_normalized = news_html_normalized.replace(u'\xa0', u' ')
+        news_soup = BeautifulSoup(news_html_normalized, "html.parser")
+        news_items = []
+
+        news_content_tag = news_soup.find("div", id="news_con_content")
+        for category_tag in news_content_tag.find_all("div", {"class": "h3_bold"}):
+            category = category_tag.get_text().strip()
+            # Assume the next sibling will be the div id=accordion.
+            category_items = category_tag.next_sibling
+            for item_tag in category_items.contents:
+                item = dict()
+                item['category'] = category
+                try:
+                    item_tag_id = item_tag['id']
+                    item['id'] = int(re.search('acc-item-(.*)', item_tag_id).group(1))
+                except:
+                    # We don't expect this to really happen.
+                    item['id'] = 0
+
+                # We must load the entire tag using Ajax if it was not already loaded
+                msg_body = item_tag.find("span", id=re.compile("^description"))
+                if not msg_body:
+                    item_html = self.try_get(
+                        "https://sms5.schoolsoft.se/{}/jsp/student/right_student_news_ajax.jsp?action=viewdetail&requestid={}&type=1".format(
+                            self.school, item['id']))
+                    item_tag = BeautifulSoup(item_html.text, "html.parser")
+                    msg_body = item_tag.find("span", id=re.compile("^description"))
+
+                msg_subject = item_tag.find("span", id=re.compile("^name"))
+                item['subject'] = msg_subject.string.strip()
+                # There seems to be no better way to extract the html code for a BS4 tag :(
+                item['body'] = ''.join([str(elem) for elem in msg_body.contents]).strip().replace(u'\xa0', u' ')
+
+                metadata = item_tag.find("div", class_="inner_right_info")
+                for field in metadata.find_all("label"):
+                    label_name = field.string
+                    label_val = field.next_sibling
+                    if label_name == "Från":
+                        item['from'] = label_val.string
+                    elif label_name == "Till":
+                        item['to'] = label_val.string.replace(u'\xa0', u' ').strip()
+                    elif label_name == "Publicerad":
+                        date_day_tag = label_val.next_sibling
+                        date_month_tag = date_day_tag.next_sibling
+                        date_year_tag = date_month_tag.next_sibling
+                        # For some weird reason, month is represented by the month number minus 1.
+                        item['date'] = date(int(date_year_tag.string), int(date_month_tag.string)+1, int(date_day_tag.string))
+                    elif label_name == "Bifogade filer":
+                        # FIXME: Should support multiple files
+                        # note href is relative to server... eg right_student_file_download.jsp?requestid1=133766&requestid2=1&object=news&fileid=143965
+                        file_tag = label_val.find("a")
+                        item['attachment-url'] = file_tag['href']
+                        item['attachment-name'] = file_tag['title']
+                        pass
+
+                news_items.append(item)
+
+        return news_items
+
 
 if __name__ == "__main__":
     # Testing shit, uses my testkeys
-    api = SchoolSoft(testkeys.school, testkeys.username, testkeys.password)
+    api = SchoolSoft(testkeys.school, testkeys.username, testkeys.password, testkeys.usertype)
 
     # Example calls
     lunch = api.fetch_lunch_menu()
     schedule = api.fetch_schedule()
+    news = api.fetch_news()
