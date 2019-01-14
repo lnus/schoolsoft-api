@@ -1,3 +1,5 @@
 testkeys.py
 *.swp
 __pycache__
+.idea
+venv
